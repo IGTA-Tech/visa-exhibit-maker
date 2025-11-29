@@ -51,5 +51,9 @@ Thumbs.db
 *.env
 credentials*.json
 service_account*.json
-API_KEY*
+API_KEY.txt
+API_KEYS.txt
 *_credentials.json
+
+# Allow documentation files
+!API_KEY_SETUP.md
