@@ -1,20 +1,29 @@
 """
 Streamlit Visa Exhibit Generator
 Standalone application for generating numbered exhibit packages from PDFs, folders, and Google Drive
+With built-in PDF compression
 """
 
 import streamlit as st
 import os
-from pathlib import Path
-import zipfile
 import tempfile
+from pathlib import Path
+from typing import List, Dict, Optional
+import zipfile
 from datetime import datetime
 
-# Import our custom modules
-from exhibit_processor import ExhibitProcessor
+# Import our modules
 from pdf_handler import PDFHandler
+from exhibit_processor import ExhibitProcessor
 from google_drive import GoogleDriveHandler
 from archive_handler import ArchiveHandler
+
+# Check if compression is available
+try:
+    from compress_handler import USCISPDFCompressor, compress_pdf_batch
+    COMPRESSION_AVAILABLE = True
+except ImportError:
+    COMPRESSION_AVAILABLE = False
 
 # Page config
 st.set_page_config(
@@ -32,401 +41,596 @@ st.markdown("""
         font-weight: bold;
         color: #1f77b4;
         text-align: center;
+        margin-bottom: 1rem;
+    }
+    .sub-header {
+        font-size: 1.2rem;
+        color: #666;
+        text-align: center;
         margin-bottom: 2rem;
+    }
+    .feature-box {
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        background-color: #f0f2f6;
+        margin: 1rem 0;
     }
     .success-box {
         padding: 1rem;
+        border-radius: 0.5rem;
         background-color: #d4edda;
         border: 1px solid #c3e6cb;
-        border-radius: 5px;
-        margin: 1rem 0;
+        color: #155724;
     }
     .info-box {
         padding: 1rem;
+        border-radius: 0.5rem;
         background-color: #d1ecf1;
         border: 1px solid #bee5eb;
-        border-radius: 5px;
-        margin: 1rem 0;
+        color: #0c5460;
+    }
+    .warning-box {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+    }
+    .stat-card {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background-color: white;
+        border: 1px solid #ddd;
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #1f77b4;
+    }
+    .stat-label {
+        font-size: 0.9rem;
+        color: #666;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state
-if 'exhibits' not in st.session_state:
-    st.session_state.exhibits = []
-if 'processor' not in st.session_state:
-    st.session_state.processor = ExhibitProcessor()
+if 'exhibits_generated' not in st.session_state:
+    st.session_state.exhibits_generated = False
+if 'compression_stats' not in st.session_state:
+    st.session_state.compression_stats = None
+if 'exhibit_list' not in st.session_state:
+    st.session_state.exhibit_list = []
 
 def main():
+    """Main application"""
+
     # Header
     st.markdown('<div class="main-header">📄 Visa Exhibit Generator</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Professional numbered exhibit packages for visa petitions</div>', unsafe_allow_html=True)
 
-    # Sidebar
+    # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Settings")
+        st.header("⚙️ Configuration")
 
-        # Archive.org option
-        archive_urls = st.checkbox("Archive URLs to archive.org", value=True)
-
-        # Exhibit numbering
-        numbering_style = st.selectbox(
-            "Exhibit Numbering Style",
-            ["Letters (A, B, C...)", "Numbers (1, 2, 3...)", "Roman (I, II, III...)"]
+        # Visa type selection
+        visa_type = st.selectbox(
+            "Visa Type",
+            ["O-1A", "O-1B", "P-1A", "EB-1A"],
+            help="Select the visa category for your petition"
         )
 
-        # Include TOC
-        include_toc = st.checkbox("Include Table of Contents", value=True)
+        # Exhibit numbering style
+        numbering_style = st.selectbox(
+            "Exhibit Numbering",
+            ["Letters (A, B, C...)", "Numbers (1, 2, 3...)", "Roman (I, II, III...)"],
+            help="How to number your exhibits"
+        )
 
-        # Merge PDFs
-        merge_all = st.checkbox("Merge all exhibits into single PDF", value=True)
+        # Convert numbering style to code
+        numbering_map = {
+            "Letters (A, B, C...)": "letters",
+            "Numbers (1, 2, 3...)": "numbers",
+            "Roman (I, II, III...)": "roman"
+        }
+        numbering_code = numbering_map[numbering_style]
 
         st.divider()
 
-        # API Configuration
-        with st.expander("🔑 API Configuration (Optional)"):
-            api2pdf_key = st.text_input("API2PDF Key", type="password", help="For URL to PDF conversion")
-            google_creds = st.file_uploader("Google Credentials JSON", type=['json'], help="For Google Drive access")
+        # ==========================================
+        # COMPRESSION SETTINGS
+        # ==========================================
+        st.header("🗜️ PDF Compression")
 
-    # Main tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📁 Upload Files", "🔗 Add URLs", "☁️ Google Drive", "📊 Generate"])
-
-    # Tab 1: Upload Files
-    with tab1:
-        st.header("Upload PDFs and Documents")
-
-        col1, col2 = st.columns([2, 1])
-
-        with col1:
-            # File uploader
-            uploaded_files = st.file_uploader(
-                "Upload PDF files for exhibits",
-                type=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
-                accept_multiple_files=True,
-                help="Upload individual files or multiple files at once"
-            )
-
-            # ZIP file uploader
-            zip_file = st.file_uploader(
-                "Or upload a ZIP file containing exhibits",
-                type=['zip'],
-                help="Upload a ZIP file with all your exhibits"
-            )
-
-        with col2:
-            st.info("💡 **Tips:**\n- Upload PDFs directly\n- Use ZIP for folders\n- Drag & drop supported\n- No file size limit")
-
-        if uploaded_files:
-            st.success(f"✅ {len(uploaded_files)} file(s) uploaded")
-
-            # Preview uploaded files
-            with st.expander("View uploaded files"):
-                for idx, file in enumerate(uploaded_files):
-                    st.write(f"{idx + 1}. {file.name} ({file.size / 1024:.1f} KB)")
-
-            # Add to exhibits
-            if st.button("Add Files to Exhibit List", type="primary"):
-                with st.spinner("Processing files..."):
-                    for file in uploaded_files:
-                        # Save to temp and add to exhibits
-                        temp_path = save_uploaded_file(file)
-                        st.session_state.exhibits.append({
-                            'source': 'upload',
-                            'path': temp_path,
-                            'name': file.name,
-                            'type': 'file'
-                        })
-                st.success(f"Added {len(uploaded_files)} exhibits!")
-                st.rerun()
-
-        if zip_file:
-            st.success(f"✅ ZIP file uploaded: {zip_file.name}")
-
-            if st.button("Extract ZIP and Add Exhibits", type="primary"):
-                with st.spinner("Extracting ZIP file..."):
-                    extracted_files = extract_zip(zip_file)
-                    for file_path, file_name in extracted_files:
-                        st.session_state.exhibits.append({
-                            'source': 'zip',
-                            'path': file_path,
-                            'name': file_name,
-                            'type': 'file'
-                        })
-                st.success(f"Extracted and added {len(extracted_files)} exhibits!")
-                st.rerun()
-
-    # Tab 2: Add URLs
-    with tab2:
-        st.header("Add URLs for Exhibits")
-
-        col1, col2 = st.columns([2, 1])
-
-        with col1:
-            url_input = st.text_area(
-                "Enter URLs (one per line)",
-                height=200,
-                placeholder="https://example.com/article1\nhttps://example.com/article2"
-            )
-
-            if st.button("Add URLs to Exhibit List", type="primary"):
-                urls = [url.strip() for url in url_input.split('\n') if url.strip()]
-                if urls:
-                    with st.spinner(f"Processing {len(urls)} URLs..."):
-                        for url in urls:
-                            st.session_state.exhibits.append({
-                                'source': 'url',
-                                'url': url,
-                                'name': url.split('/')[-1] or 'webpage',
-                                'type': 'url'
-                            })
-                    st.success(f"Added {len(urls)} URL exhibits!")
-                    st.rerun()
-                else:
-                    st.warning("Please enter at least one URL")
-
-        with col2:
-            st.info("💡 **URL Tips:**\n- One URL per line\n- Will be archived\n- Converted to PDF\n- Headers added")
-
-    # Tab 3: Google Drive
-    with tab3:
-        st.header("Import from Google Drive")
-
-        if not google_creds:
-            st.warning("⚠️ Please upload Google credentials in the sidebar to use this feature")
+        if not COMPRESSION_AVAILABLE:
+            st.warning("⚠️ Compression not available. Install PyMuPDF: `pip install PyMuPDF`")
+            enable_compression = False
         else:
-            st.success("✅ Google credentials loaded")
-
-            # Initialize Drive handler
-            drive_handler = GoogleDriveHandler(google_creds)
-
-            folder_url = st.text_input(
-                "Google Drive Folder URL",
-                placeholder="https://drive.google.com/drive/folders/..."
+            enable_compression = st.checkbox(
+                "Enable PDF Compression",
+                value=True,
+                help="Compress PDFs to reduce file size (50-75% reduction)"
             )
 
-            if st.button("Import Folder", type="primary"):
-                if folder_url:
-                    with st.spinner("Importing from Google Drive..."):
-                        files = drive_handler.list_folder_files(folder_url)
-                        for file_info in files:
-                            st.session_state.exhibits.append({
-                                'source': 'google_drive',
-                                'file_id': file_info['id'],
-                                'name': file_info['name'],
-                                'type': 'file'
-                            })
-                    st.success(f"Imported {len(files)} files from Google Drive!")
-                    st.rerun()
+            if enable_compression:
+                st.markdown('<div class="info-box">✓ Compression enabled - files will be 50-75% smaller</div>', unsafe_allow_html=True)
 
-    # Tab 4: Generate
-    with tab4:
-        st.header("Generate Exhibit Package")
+                # Quality preset
+                quality_preset = st.selectbox(
+                    "Compression Quality",
+                    ["High Quality (USCIS Recommended)", "Balanced", "Maximum Compression"],
+                    help="High = 300 DPI text, 200 DPI images (best for legal docs)\n"
+                         "Balanced = 150 DPI images (good compression)\n"
+                         "Maximum = 100 DPI images (smallest files)"
+                )
 
-        # Display current exhibits
-        st.subheader(f"📋 Current Exhibits: {len(st.session_state.exhibits)}")
+                # Convert to code
+                quality_map = {
+                    "High Quality (USCIS Recommended)": "high",
+                    "Balanced": "balanced",
+                    "Maximum Compression": "maximum"
+                }
+                quality_code = quality_map[quality_preset]
 
-        if st.session_state.exhibits:
-            # Exhibit list
-            for idx, exhibit in enumerate(st.session_state.exhibits):
-                col1, col2, col3 = st.columns([0.5, 3, 1])
+                # Show quality details
+                quality_info = {
+                    "high": "📊 Text: 300 DPI | Images: 200 DPI | JPEG: 85%",
+                    "balanced": "📊 Text: 300 DPI | Images: 150 DPI | JPEG: 80%",
+                    "maximum": "📊 Text: 200 DPI | Images: 100 DPI | JPEG: 75%"
+                }
+                st.caption(quality_info[quality_code])
 
-                with col1:
-                    st.write(f"**{get_exhibit_number(idx, numbering_style)}**")
+                # Compression method display
+                with st.expander("ℹ️ Compression Methods"):
+                    st.write("**3-Tier Fallback System:**")
+                    st.write("1️⃣ **Ghostscript** (FREE) - 60-90% compression")
+                    st.write("   Best quality/size ratio")
+                    st.write("")
+                    st.write("2️⃣ **PyMuPDF** (FREE) - 30-60% compression")
+                    st.write("   Automatic fallback")
+                    st.write("")
+                    st.write("3️⃣ **SmallPDF API** (PAID) - 40-80% compression")
+                    st.write("   Premium quality ($12/month)")
 
-                with col2:
-                    st.write(exhibit['name'])
+                # Optional SmallPDF API key
+                with st.expander("🔑 SmallPDF API Key (Optional)"):
+                    st.caption("For premium Tier 3 compression backup")
+                    smallpdf_key = st.text_input(
+                        "SmallPDF API Key",
+                        type="password",
+                        help="Get key at https://smallpdf.com/developers\n"
+                             "Leave empty to use free compression only"
+                    )
+                    if smallpdf_key:
+                        st.success("✓ SmallPDF API key set")
+                    else:
+                        st.info("Using free compression (Ghostscript + PyMuPDF)")
+            else:
+                quality_code = "high"
+                smallpdf_key = None
 
-                with col3:
-                    if st.button("🗑️", key=f"delete_{idx}"):
-                        st.session_state.exhibits.pop(idx)
-                        st.rerun()
+        st.divider()
 
+        # Additional options
+        st.header("📋 Options")
+
+        add_toc = st.checkbox(
+            "Generate Table of Contents",
+            value=True,
+            help="Create a TOC page listing all exhibits"
+        )
+
+        add_archive = st.checkbox(
+            "Archive URLs (archive.org)",
+            value=False,
+            help="Preserve URLs on archive.org (for media articles)"
+        )
+
+        merge_pdfs = st.checkbox(
+            "Merge into single PDF",
+            value=True,
+            help="Combine all exhibits into one file"
+        )
+
+    # Main content area
+    tab1, tab2, tab3 = st.tabs(["📁 Upload Files", "☁️ Google Drive", "📊 Results"])
+
+    # ==========================================
+    # TAB 1: FILE UPLOAD
+    # ==========================================
+    with tab1:
+        st.header("Upload PDF Files")
+
+        upload_method = st.radio(
+            "Upload Method",
+            ["Individual PDFs", "ZIP Archive", "Folder"],
+            horizontal=True
+        )
+
+        uploaded_files = []
+
+        if upload_method == "Individual PDFs":
+            uploaded_files = st.file_uploader(
+                "Select PDF files",
+                type=["pdf"],
+                accept_multiple_files=True,
+                help="Upload one or more PDF files"
+            )
+
+        elif upload_method == "ZIP Archive":
+            zip_file = st.file_uploader(
+                "Select ZIP file",
+                type=["zip"],
+                help="Upload a ZIP file containing PDFs"
+            )
+
+            if zip_file:
+                # Extract ZIP
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    zip_path = os.path.join(tmp_dir, "upload.zip")
+                    with open(zip_path, 'wb') as f:
+                        f.write(zip_file.read())
+
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(tmp_dir)
+
+                    # Find PDFs
+                    pdf_files = list(Path(tmp_dir).rglob("*.pdf"))
+                    st.info(f"Found {len(pdf_files)} PDF files in ZIP")
+
+                    # Store in session state for processing
+                    st.session_state.zip_files = [str(p) for p in pdf_files]
+
+        elif upload_method == "Folder":
+            st.info("💡 Tip: Use Google Drive tab for folder processing")
+
+        # Show uploaded files
+        if uploaded_files:
+            st.success(f"✓ {len(uploaded_files)} files uploaded")
+
+            with st.expander("📄 View uploaded files"):
+                for i, file in enumerate(uploaded_files, 1):
+                    st.write(f"{i}. {file.name} ({file.size / 1024:.1f} KB)")
+
+        # Generate button
+        if uploaded_files or (upload_method == "ZIP Archive" and 'zip_files' in st.session_state):
             st.divider()
 
-            # Generation settings
-            col1, col2 = st.columns(2)
+            if st.button("🚀 Generate Exhibits", type="primary", use_container_width=True):
+                generate_exhibits(
+                    uploaded_files if uploaded_files else st.session_state.zip_files,
+                    visa_type,
+                    numbering_code,
+                    enable_compression,
+                    quality_code,
+                    smallpdf_key if enable_compression else None,
+                    add_toc,
+                    add_archive,
+                    merge_pdfs
+                )
+
+    # ==========================================
+    # TAB 2: GOOGLE DRIVE
+    # ==========================================
+    with tab2:
+        st.header("Google Drive Integration")
+
+        st.info("💡 Connect to Google Drive to process folders directly")
+
+        drive_url = st.text_input(
+            "Google Drive Folder URL",
+            placeholder="https://drive.google.com/drive/folders/...",
+            help="Paste the URL of your Google Drive folder containing PDFs"
+        )
+
+        if drive_url:
+            if st.button("📥 Load from Drive", type="primary"):
+                st.warning("🚧 Google Drive integration coming soon. Use file upload for now.")
+
+    # ==========================================
+    # TAB 3: RESULTS
+    # ==========================================
+    with tab3:
+        st.header("Generation Results")
+
+        if st.session_state.exhibits_generated:
+            # Success message
+            st.markdown('<div class="success-box">✓ Exhibits generated successfully!</div>', unsafe_allow_html=True)
+
+            # Statistics
+            st.subheader("📊 Statistics")
+
+            col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                case_name = st.text_input("Case Name/ID", value=f"Exhibit_Package_{datetime.now().strftime('%Y%m%d')}")
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{len(st.session_state.exhibit_list)}</div>
+                    <div class="stat-label">Exhibits</div>
+                </div>
+                """, unsafe_allow_html=True)
 
             with col2:
-                beneficiary_name = st.text_input("Beneficiary Name (Optional)", placeholder="John Doe")
+                total_pages = sum(ex.get('pages', 0) for ex in st.session_state.exhibit_list)
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{total_pages}</div>
+                    <div class="stat-label">Total Pages</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-            # Generate button
-            if st.button("🚀 Generate Exhibit Package", type="primary", use_container_width=True):
-                generate_exhibits(
-                    case_name,
-                    beneficiary_name,
-                    numbering_style,
-                    include_toc,
-                    merge_all,
-                    archive_urls
-                )
+            with col3:
+                if st.session_state.compression_stats:
+                    reduction = st.session_state.compression_stats.get('avg_reduction', 0)
+                    st.markdown(f"""
+                    <div class="stat-card">
+                        <div class="stat-value">{reduction:.1f}%</div>
+                        <div class="stat-label">Size Reduction</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="stat-card">
+                        <div class="stat-value">-</div>
+                        <div class="stat-label">Compression</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col4:
+                if st.session_state.compression_stats:
+                    original_mb = st.session_state.compression_stats.get('original_size', 0) / (1024*1024)
+                    compressed_mb = st.session_state.compression_stats.get('compressed_size', 0) / (1024*1024)
+                    st.markdown(f"""
+                    <div class="stat-card">
+                        <div class="stat-value">{compressed_mb:.1f} MB</div>
+                        <div class="stat-label">Final Size</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="stat-card">
+                        <div class="stat-value">-</div>
+                        <div class="stat-label">File Size</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # Compression details
+            if st.session_state.compression_stats:
+                st.divider()
+                st.subheader("🗜️ Compression Details")
+
+                stats = st.session_state.compression_stats
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.metric(
+                        "Original Size",
+                        f"{stats.get('original_size', 0) / (1024*1024):.2f} MB"
+                    )
+                    st.metric(
+                        "Compressed Size",
+                        f"{stats.get('compressed_size', 0) / (1024*1024):.2f} MB",
+                        delta=f"-{stats.get('avg_reduction', 0):.1f}%",
+                        delta_color="inverse"
+                    )
+
+                with col2:
+                    st.metric(
+                        "Compression Method",
+                        stats.get('method', 'Unknown').title()
+                    )
+                    st.metric(
+                        "Quality Preset",
+                        stats.get('quality', 'Unknown').title()
+                    )
+
+            # Exhibit list
+            st.divider()
+            st.subheader("📋 Exhibit List")
+
+            for exhibit in st.session_state.exhibit_list:
+                with st.expander(f"Exhibit {exhibit['number']}: {exhibit['title']}"):
+                    st.write(f"**Original File**: {exhibit['filename']}")
+                    st.write(f"**Pages**: {exhibit.get('pages', 'Unknown')}")
+                    if 'compression' in exhibit and exhibit['compression']:
+                        st.write(f"**Compressed**: {exhibit['compression']['reduction']:.1f}% reduction")
+                        st.write(f"**Method**: {exhibit['compression']['method']}")
+
+            # Download button
+            st.divider()
+            if 'output_file' in st.session_state:
+                with open(st.session_state.output_file, 'rb') as f:
+                    st.download_button(
+                        label="📥 Download Exhibit Package",
+                        data=f,
+                        file_name=f"Exhibit_Package_{visa_type}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True
+                    )
         else:
-            st.info("👆 Add exhibits using the tabs above to get started")
+            st.info("👈 Upload files and click 'Generate Exhibits' to see results here")
 
-        # Clear all button
-        if st.session_state.exhibits:
-            if st.button("🗑️ Clear All Exhibits", type="secondary"):
-                st.session_state.exhibits = []
-                st.rerun()
+def generate_exhibits(
+    files,
+    visa_type: str,
+    numbering_style: str,
+    enable_compression: bool,
+    quality_preset: str,
+    smallpdf_api_key: Optional[str],
+    add_toc: bool,
+    add_archive: bool,
+    merge_pdfs: bool
+):
+    """Generate exhibit package from uploaded files"""
 
-
-def save_uploaded_file(uploaded_file):
-    """Save uploaded file to temp directory"""
-    temp_dir = tempfile.gettempdir()
-    file_path = os.path.join(temp_dir, uploaded_file.name)
-
-    with open(file_path, 'wb') as f:
-        f.write(uploaded_file.getbuffer())
-
-    return file_path
-
-
-def extract_zip(zip_file):
-    """Extract ZIP file and return list of file paths"""
-    temp_dir = tempfile.mkdtemp()
-    extracted_files = []
-
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-        zip_ref.extractall(temp_dir)
-
-        # Walk through extracted files
-        for root, dirs, files in os.walk(temp_dir):
-            for file in files:
-                if file.lower().endswith(('.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png')):
-                    file_path = os.path.join(root, file)
-                    extracted_files.append((file_path, file))
-
-    return extracted_files
-
-
-def get_exhibit_number(idx, style):
-    """Generate exhibit number based on style"""
-    if style == "Letters (A, B, C...)":
-        return chr(65 + idx)  # A, B, C...
-    elif style == "Numbers (1, 2, 3...)":
-        return str(idx + 1)
-    else:  # Roman numerals
-        romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
-        return romans[idx] if idx < len(romans) else str(idx + 1)
-
-
-def generate_exhibits(case_name, beneficiary_name, numbering_style, include_toc, merge_all, archive_urls):
-    """Generate the final exhibit package"""
-
-    # Progress bar
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    try:
-        # Step 1: Process each exhibit
-        status_text.text("Processing exhibits...")
-        progress_bar.progress(10)
-
-        processed_exhibits = []
-        pdf_handler = PDFHandler()
-        archive_handler = ArchiveHandler()
-
-        for idx, exhibit in enumerate(st.session_state.exhibits):
-            status_text.text(f"Processing exhibit {idx + 1}/{len(st.session_state.exhibits)}...")
-
-            exhibit_num = get_exhibit_number(idx, numbering_style)
-
-            # Handle different source types
-            if exhibit['type'] == 'file':
-                pdf_path = exhibit['path']
-            elif exhibit['type'] == 'url':
-                # Archive URL if enabled
-                if archive_urls:
-                    archived = archive_handler.archive_url(exhibit['url'])
-                    exhibit['archive_url'] = archived.get('archive_url')
-
-                # Convert URL to PDF (requires API2PDF or similar)
-                pdf_path = pdf_handler.url_to_pdf(exhibit['url'])
-
-            # Add exhibit number to PDF
-            numbered_pdf = pdf_handler.add_exhibit_number(pdf_path, exhibit_num)
-
-            processed_exhibits.append({
-                'number': exhibit_num,
-                'path': numbered_pdf,
-                'name': exhibit['name'],
-                'original_url': exhibit.get('url'),
-                'archive_url': exhibit.get('archive_url')
-            })
-
-            progress_bar.progress(10 + (idx + 1) * 60 // len(st.session_state.exhibits))
-
-        # Step 2: Generate Table of Contents
-        if include_toc:
-            status_text.text("Generating Table of Contents...")
-            progress_bar.progress(75)
-
-            toc_pdf = pdf_handler.generate_toc(
-                processed_exhibits,
-                case_name,
-                beneficiary_name
+    with st.spinner("🔄 Processing files..."):
+        try:
+            # Create PDF handler with compression settings
+            pdf_handler = PDFHandler(
+                enable_compression=enable_compression,
+                quality_preset=quality_preset,
+                smallpdf_api_key=smallpdf_api_key
             )
 
-        # Step 3: Merge all PDFs
-        if merge_all:
-            status_text.text("Merging all exhibits...")
-            progress_bar.progress(85)
+            # Create temporary directory for processing
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                # Save uploaded files
+                file_paths = []
 
-            pdf_files = []
-            if include_toc and toc_pdf:
-                pdf_files.append(toc_pdf)
-            pdf_files.extend([ex['path'] for ex in processed_exhibits])
+                progress_bar = st.progress(0)
+                status_text = st.empty()
 
-            final_pdf = pdf_handler.merge_pdfs(pdf_files, case_name)
+                # Handle file upload
+                for i, file in enumerate(files):
+                    if hasattr(file, 'name'):  # Streamlit uploaded file
+                        file_path = os.path.join(tmp_dir, file.name)
+                        with open(file_path, 'wb') as f:
+                            f.write(file.read())
+                    else:  # File path (from ZIP)
+                        file_path = file
 
-        # Step 4: Complete
-        progress_bar.progress(100)
-        status_text.text("✅ Generation complete!")
+                    file_paths.append(file_path)
+                    progress_bar.progress((i + 1) / len(files))
+                    status_text.text(f"Saving file {i+1}/{len(files)}")
 
-        # Display results
-        st.success("🎉 Exhibit package generated successfully!")
+                status_text.text("✓ All files saved")
 
-        # Download buttons
-        col1, col2 = st.columns(2)
+                # Compression phase
+                compression_results = []
+                total_original_size = 0
+                total_compressed_size = 0
 
-        with col1:
-            if merge_all and final_pdf:
-                with open(final_pdf, 'rb') as f:
-                    st.download_button(
-                        label="📥 Download Complete Package",
-                        data=f.read(),
-                        file_name=f"{case_name}.pdf",
-                        mime="application/pdf",
-                        type="primary"
+                if enable_compression:
+                    status_text.text("🗜️ Compressing PDFs...")
+
+                    for i, file_path in enumerate(file_paths):
+                        result = pdf_handler.compressor.compress(file_path) if pdf_handler.compressor else {'success': False}
+
+                        if result['success']:
+                            compression_results.append(result)
+                            total_original_size += result['original_size']
+                            total_compressed_size += result['compressed_size']
+
+                            status_text.text(
+                                f"🗜️ Compressed {i+1}/{len(file_paths)}: "
+                                f"{result['reduction_percent']:.1f}% reduction ({result['method']})"
+                            )
+
+                        progress_bar.progress((i + 1) / len(file_paths))
+
+                    # Calculate average compression
+                    if compression_results:
+                        avg_reduction = (1 - total_compressed_size / total_original_size) * 100 if total_original_size > 0 else 0
+
+                        st.session_state.compression_stats = {
+                            'original_size': total_original_size,
+                            'compressed_size': total_compressed_size,
+                            'avg_reduction': avg_reduction,
+                            'method': compression_results[0]['method'] if compression_results else 'none',
+                            'quality': quality_preset
+                        }
+
+                        status_text.text(f"✓ Compression complete: {avg_reduction:.1f}% average reduction")
+
+                # Number exhibits
+                status_text.text("📝 Numbering exhibits...")
+
+                exhibit_list = []
+                numbered_files = []
+
+                for i, file_path in enumerate(file_paths):
+                    # Get exhibit number
+                    if numbering_style == "letters":
+                        exhibit_num = chr(65 + i)  # A, B, C...
+                    elif numbering_style == "numbers":
+                        exhibit_num = str(i + 1)  # 1, 2, 3...
+                    else:  # roman
+                        exhibit_num = to_roman(i + 1)  # I, II, III...
+
+                    # Add exhibit number to PDF
+                    numbered_file = pdf_handler.add_exhibit_number(file_path, exhibit_num)
+                    numbered_files.append(numbered_file)
+
+                    # Track exhibit info
+                    exhibit_info = {
+                        'number': exhibit_num,
+                        'title': Path(file_path).stem,
+                        'filename': os.path.basename(file_path),
+                        'pages': get_pdf_page_count(file_path)
+                    }
+
+                    # Add compression info if available
+                    if i < len(compression_results) and compression_results[i]['success']:
+                        exhibit_info['compression'] = {
+                            'reduction': compression_results[i]['reduction_percent'],
+                            'method': compression_results[i]['method']
+                        }
+
+                    exhibit_list.append(exhibit_info)
+
+                    progress_bar.progress((i + 1) / len(file_paths))
+                    status_text.text(f"📝 Numbered exhibit {exhibit_num}")
+
+                st.session_state.exhibit_list = exhibit_list
+
+                # Generate TOC if requested
+                if add_toc:
+                    status_text.text("📋 Generating Table of Contents...")
+                    toc_file = pdf_handler.generate_table_of_contents(
+                        exhibit_list,
+                        visa_type,
+                        os.path.join(tmp_dir, "TOC.pdf")
                     )
+                    numbered_files.insert(0, toc_file)
 
-        with col2:
-            if include_toc and toc_pdf:
-                with open(toc_pdf, 'rb') as f:
-                    st.download_button(
-                        label="📋 Download Table of Contents",
-                        data=f.read(),
-                        file_name=f"{case_name}_TOC.pdf",
-                        mime="application/pdf"
-                    )
+                # Merge PDFs if requested
+                if merge_pdfs:
+                    status_text.text("📦 Merging PDFs...")
+                    output_file = os.path.join(tmp_dir, "final_package.pdf")
+                    merged_file = pdf_handler.merge_pdfs(numbered_files, output_file)
 
-        # Individual exhibits
-        with st.expander("Download Individual Exhibits"):
-            for exhibit in processed_exhibits:
-                with open(exhibit['path'], 'rb') as f:
-                    st.download_button(
-                        label=f"Exhibit {exhibit['number']}: {exhibit['name']}",
-                        data=f.read(),
-                        file_name=f"Exhibit_{exhibit['number']}_{exhibit['name']}.pdf",
-                        mime="application/pdf",
-                        key=f"download_{exhibit['number']}"
-                    )
+                    # Save to session state for download
+                    final_output = os.path.join(tempfile.gettempdir(), f"exhibit_package_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+                    import shutil
+                    shutil.copy(merged_file, final_output)
+                    st.session_state.output_file = final_output
 
-    except Exception as e:
-        st.error(f"❌ Error generating exhibits: {str(e)}")
-        progress_bar.progress(0)
+                progress_bar.progress(100)
+                status_text.text("✓ Generation complete!")
 
+                st.session_state.exhibits_generated = True
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ Error generating exhibits: {str(e)}")
+            import traceback
+            with st.expander("Error Details"):
+                st.code(traceback.format_exc())
+
+def get_pdf_page_count(pdf_path: str) -> int:
+    """Get number of pages in PDF"""
+    try:
+        from PyPDF2 import PdfReader
+        reader = PdfReader(pdf_path)
+        return len(reader.pages)
+    except:
+        return 0
+
+def to_roman(num: int) -> str:
+    """Convert number to Roman numeral"""
+    val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+    syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']
+    roman_num = ''
+    i = 0
+    while num > 0:
+        for _ in range(num // val[i]):
+            roman_num += syms[i]
+            num -= val[i]
+        i += 1
+    return roman_num
 
 if __name__ == "__main__":
     main()

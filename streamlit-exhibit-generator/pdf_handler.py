@@ -356,3 +356,83 @@ class PDFHandler:
         # For now, return None - implement when API key available
         print(f"URL to PDF conversion requires API2PDF: {url}")
         return None
+
+    def generate_table_of_contents(
+        self,
+        exhibit_list: List[Dict],
+        visa_type: str,
+        output_path: str
+    ) -> str:
+        """
+        Generate Table of Contents PDF
+
+        Args:
+            exhibit_list: List of exhibit dictionaries with number, title, pages
+            visa_type: Visa category (O-1A, P-1A, etc.)
+            output_path: Path for output PDF
+
+        Returns:
+            Path to generated TOC PDF
+        """
+        doc = SimpleDocTemplate(output_path, pagesize=letter)
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1f77b4'),
+            spaceAfter=30,
+            alignment=1  # Center
+        )
+        story.append(Paragraph("EXHIBIT PACKAGE", title_style))
+        story.append(Paragraph("TABLE OF CONTENTS", title_style))
+        story.append(Spacer(1, 0.5*inch))
+
+        # Case info
+        info_style = ParagraphStyle(
+            'Info',
+            parent=styles['Normal'],
+            fontSize=11,
+            spaceAfter=20
+        )
+        info_text = f"""
+        <b>Visa Type:</b> {visa_type}<br/>
+        <b>Generated:</b> {datetime.now().strftime('%B %d, %Y')}<br/>
+        <b>Total Exhibits:</b> {len(exhibit_list)}
+        """
+        story.append(Paragraph(info_text, info_style))
+        story.append(Spacer(1, 0.3*inch))
+
+        # Exhibit table
+        table_data = [['Exhibit', 'Title', 'Pages']]
+
+        for exhibit in exhibit_list:
+            table_data.append([
+                f"Exhibit {exhibit['number']}",
+                exhibit['title'][:50],  # Truncate long titles
+                str(exhibit.get('pages', '-'))
+            ])
+
+        table = Table(table_data, colWidths=[1.5*inch, 4*inch, 1*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+        ]))
+
+        story.append(table)
+
+        # Build PDF
+        doc.build(story)
+        return output_path
