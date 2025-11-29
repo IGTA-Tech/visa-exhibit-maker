@@ -4,6 +4,18 @@
  * With optional SmallPDF API compression
  *
  * Deploy as Web App for full functionality
+ *
+ * EXHIBIT ORGANIZATION REFERENCE:
+ * This script follows the authoritative exhibit organization guide:
+ * ../VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md
+ *
+ * Provides USCIS-compliant exhibit structures for:
+ * - O-1A (Extraordinary Ability) - Standard & Comparable Evidence
+ * - O-1B (Arts/Entertainment) - Standard & Comparable Evidence
+ * - P-1A (Internationally Recognized Athletes) - Standard ONLY (NO Comparable)
+ * - EB-1A (Permanent Residence) - Standard & Comparable Evidence
+ *
+ * Based on 8 CFR § 214.2 (O-1, P-1) and 8 CFR § 204.5 (EB-1A)
  */
 
 // ============================================

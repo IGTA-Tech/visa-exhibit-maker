@@ -2,6 +2,17 @@
 Streamlit Visa Exhibit Generator
 Standalone application for generating numbered exhibit packages from PDFs, folders, and Google Drive
 With built-in PDF compression
+
+EXHIBIT ORGANIZATION REFERENCE:
+This application follows the authoritative exhibit organization guide:
+../VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md
+
+This guide provides:
+- Complete exhibit ordering templates for O-1A, O-1B, P-1A, P-1S, EB-1A
+- Standard vs Comparable Evidence structures (O-1A, O-1B, EB-1A only)
+- Criterion-by-criterion organization
+- USCIS regulatory compliance (8 CFR § 214.2, 8 CFR § 204.5)
+- Production-tested petition structures
 """
 
 import streamlit as st
@@ -232,6 +243,33 @@ def main():
             value=True,
             help="Combine all exhibits into one file"
         )
+
+        st.divider()
+
+        # Documentation reference
+        st.header("📚 Documentation")
+
+        with st.expander("ℹ️ Exhibit Organization Guide"):
+            st.markdown("""
+            **Reference Document:**
+            `VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md`
+
+            This application follows USCIS-compliant exhibit structures:
+
+            **Supported Visa Types:**
+            - ✅ O-1A (Extraordinary Ability)
+            - ✅ O-1B (Arts/Entertainment)
+            - ✅ P-1A (Internationally Recognized Athletes)
+            - ✅ EB-1A (Permanent Residence)
+
+            **Key Features:**
+            - Standard vs Comparable Evidence (O-1A, O-1B, EB-1A only)
+            - Criterion-based organization
+            - USCIS regulatory compliance
+            - Production-tested structures
+
+            ⚠️ **Important:** P-1A has NO comparable evidence provision
+            """)
 
     # Main content area
     tab1, tab2, tab3 = st.tabs(["📁 Upload Files", "☁️ Google Drive", "📊 Results"])

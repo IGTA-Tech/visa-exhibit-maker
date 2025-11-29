@@ -34,10 +34,41 @@ These documents provide Claude with complete knowledge about:
 
 Upload these first - they provide the core knowledge:
 
-#### 1. **EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt**
+#### 1. **VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md** 🌟 **PRIMARY REFERENCE**
+**Location**: `visa-exhibit-maker/VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md`
+**Size**: 61 KB (1,400 lines)
+**Purpose**: ✨ **AUTHORITATIVE exhibit organization guide** - THIS IS THE MAIN REFERENCE
+**Contains**:
+- ✅ Complete exhibit ordering templates for ALL visa types (O-1A, O-1B, P-1A, P-1S, EB-1A)
+- ✅ Standard vs Comparable Evidence structures (O-1A, O-1B, EB-1A only)
+- ✅ Criterion-by-criterion organization with sub-exhibit formats
+- ✅ USCIS regulatory citations (8 CFR § 214.2, 8 CFR § 204.5)
+- ✅ Production petition examples (Charles Reindorf P-1A, Rory MacDonald O-1)
+- ✅ Document categorization logic
+- ✅ Table of Contents generation rules
+- ✅ Media article organization tiers
+- ✅ Expert letter requirements
+- ✅ Archive.org URL preservation
+- ✅ Common mistakes and quality checklists
+
+**⚠️ CRITICAL RULES FROM THIS DOCUMENT:**
+- P-1A has NO comparable evidence provision (must use standard criteria only)
+- O-1A, O-1B, and EB-1A CAN use comparable evidence per regulations
+- P-1A REQUIRES detailed itinerary (mandatory per 8 CFR § 214.2(p)(2)(iv)(A))
+- Comparable evidence requires explanation letter per criterion
+
+**📌 USE THIS DOCUMENT AS PRIMARY REFERENCE FOR:**
+- Determining exhibit order for any visa type
+- Understanding standard vs comparable evidence
+- Creating proper exhibit structures
+- Following USCIS regulatory requirements
+
+---
+
+#### 2. **EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt**
 **Location**: `visa-exhibit-maker/EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt`
 **Size**: 30,000+ words
-**Purpose**: Complete exhibit structure guide
+**Purpose**: Complete exhibit structure guide (supplementary to RAG Comprehensive)
 **Contains**:
 - Exhibit organization for O-1A, O-1B, P-1A, EB-1A
 - Document categorization by criterion
@@ -45,7 +76,7 @@ Upload these first - they provide the core knowledge:
 - Best practices and common mistakes
 - Quality control checklists
 
-#### 2. **Complete exhibits compressed just one.pdf**
+#### 3. **Complete exhibits compressed just one.pdf**
 **Location**: `visa-exhibit-maker/Examples of Single PDFs/Complete exhibits compressed just one.pdf`
 **Size**: 32 MB
 **Purpose**: Real production example
@@ -217,54 +248,60 @@ Upload these for deep visa category knowledge:
 
 ## 🎯 RECOMMENDED UPLOAD STRATEGY
 
-### **For General Exhibit Organization** (Upload 3 files):
+### **For General Exhibit Organization** (Upload 4 files):
 
 ```
-✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
+✅ VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md 🌟 (ALWAYS INCLUDE - PRIMARY REFERENCE)
 ✅ Complete exhibits compressed just one.pdf
 ✅ GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
+✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 ```
 
 **Use Case**: Organizing files, creating exhibit lists, understanding structure
 
 ---
 
-### **For O-1A Petitions** (Upload 6 files):
+### **For O-1A Petitions** (Upload 7 files):
 
 ```
-✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
+✅ VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md 🌟 (ALWAYS INCLUDE - PRIMARY REFERENCE)
 ✅ Complete exhibits compressed just one.pdf
 ✅ GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
+✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 ✅ DIY O1A RAG.md
 ✅ O-1a visa complete guide.md
 ✅ O-1A Evaluation RAG.md
 ```
 
 **Use Case**: Creating O-1A petitions, evaluating evidence, writing briefs
+**Key Features**: Standard AND Comparable Evidence supported for O-1A
 
 ---
 
-### **For P-1A Petitions** (Upload 6 files):
+### **For P-1A Petitions** (Upload 7 files):
 
 ```
-✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
+✅ VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md 🌟 (ALWAYS INCLUDE - PRIMARY REFERENCE)
 ✅ Complete exhibits compressed just one.pdf
 ✅ GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
+✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 ✅ DIY P1A RAG.md
 ✅ P-1A Itinerary document.md
 ✅ O1A_O1B_P1A_EB1A_profesional_evaluationRAG.md
 ```
 
 **Use Case**: Creating P-1A petitions, athlete documentation, itineraries
+**⚠️ CRITICAL**: P-1A has NO comparable evidence provision - use standard criteria only
 
 ---
 
-### **For EB-1A Petitions** (Upload 7 files):
+### **For EB-1A Petitions** (Upload 8 files):
 
 ```
-✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
+✅ VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md 🌟 (ALWAYS INCLUDE - PRIMARY REFERENCE)
 ✅ Complete exhibits compressed just one.pdf
 ✅ GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
+✅ EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 ✅ EB-1A knowledge base.md
 ✅ EB1A_petition_Brief.md
 ✅ EB1A_Tech_Marathon_Runner_Comprehensive_Analysis.md
@@ -272,6 +309,7 @@ Upload these for deep visa category knowledge:
 ```
 
 **Use Case**: Creating EB-1A petitions, final merits determination, scoring
+**Key Features**: Standard AND Comparable Evidence supported, Kazarian two-step analysis
 
 ---
 
@@ -473,6 +511,7 @@ All documents are available locally at:
 **Exhibit Maker Repo**:
 ```
 /home/innovativeautomations/Visa Exhibit Maker/
+├── VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md 🌟 (PRIMARY - ALWAYS USE)
 ├── EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 ├── GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
 ├── API_KEY_SETUP.md
@@ -497,15 +536,19 @@ All documents are available locally at:
 
 **For most users**, start with this minimal setup:
 
-1. Upload to Claude Project:
-   - EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
+1. Upload to Claude Project (ALWAYS include #1):
+   - **VISA_EXHIBIT_RAG_COMPREHENSIVE_INSTRUCTIONS.md** 🌟 (PRIMARY - REQUIRED)
    - Complete exhibits compressed just one.pdf
    - GOOGLE_DRIVE_ORGANIZATION_GUIDE.md
+   - EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt
 
 2. Add visa-specific RAG:
-   - DIY O1A RAG.md (or P1A, EB-1A, O-1B)
+   - DIY O1A RAG.md (for O-1A)
+   - DIY P1A RAG.md (for P-1A - remember: NO comparable evidence!)
+   - EB-1A knowledge base.md (for EB-1A)
+   - O-1B knowledge base.md (for O-1B)
 
-3. Ask Claude to help organize your files!
+3. Ask Claude to help organize your files using the RAG Comprehensive Instructions!
 
 ---
 
