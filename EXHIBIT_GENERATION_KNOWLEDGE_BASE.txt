@@ -910,10 +910,10 @@ Before submitting exhibit package:
 
 ## 🎓 KNOWLEDGE BASE VERSION
 
-**Version**: 1.0
+**Version**: 1.1
 **Last Updated**: November 29, 2025
 **Based On**:
-- Production examples from 6 complete visa petitions
+- Production example from comprehensive visa petition package (32 MB compressed)
 - Mega Internal V1 Visa Tool RAG knowledge base
 - O-1A, O-1B, P-1A, EB-1A regulatory criteria (8 CFR § 214.2)
 - USCIS policy memoranda

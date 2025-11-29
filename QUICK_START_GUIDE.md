@@ -4,7 +4,7 @@
 
 ## 📂 What's Included
 
-This folder contains **TWO complete applications**:
+This folder contains **TWO complete applications** plus a **production example PDF** (32 MB compressed file showing real visa petition structure):
 
 ### 1. **Streamlit Version** (Python)
 `streamlit-exhibit-generator/`

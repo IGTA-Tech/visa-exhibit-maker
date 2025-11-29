@@ -82,6 +82,9 @@ visa-exhibit-maker/
 ├── EXHIBIT_GENERATION_KNOWLEDGE_BASE.txt ✅
 ├── IMPLEMENTATION_COMPLETE.md ✅ (this file)
 │
+├── Examples of Single PDFs/
+│   └── Complete exhibits compressed just one.pdf (32 MB - production example)
+│
 ├── streamlit-exhibit-generator/
 │   ├── app.py (main Streamlit interface)
 │   ├── exhibit_processor.py (core logic)
@@ -97,13 +100,8 @@ visa-exhibit-maker/
 │   ├── appsscript.json (configuration)
 │   └── README.md (deployment guide)
 │
-└── Examples of Single PDFs/ (6 production examples, 6-13 MB each)
-    ├── Charles P-1 final PDF - premium processing-compressed (1).pdf
-    ├── Dhyan Patel P-1S Single PDF premium processing-compressed.pdf
-    ├── Dylan Final Single PDF-compressed (2).pdf
-    ├── Harry F Alexander-Single PDF (1).pdf
-    ├── Jose _VFS_Single PDF premium_Updated.pdf
-    └── Rory Macdonald O-1 Single PDF Regular process Updated.pdf
+└── Examples of Single PDFs/
+    └── Complete exhibits compressed just one.pdf (32 MB - comprehensive production example)
 ```
 
 ---
@@ -354,7 +352,7 @@ A: Regenerate after all exhibits are final. Page numbers calculated during merge
 - [x] **Streamlit Web App** - Full-featured exhibit generator
 - [x] **Google Apps Script Tool** - Zero-setup Drive integration
 - [x] **Comprehensive Knowledge Base** - 600+ lines of exhibit rules
-- [x] **6 Production Examples** - Real petition PDFs as references
+- [x] **Production Example** - 32 MB compressed real petition PDF
 - [x] **GitHub Repository** - Version controlled, public access
 - [x] **Complete Documentation** - README, Quick Start, Knowledge Base
 - [x] **Deployment Ready** - Both tools ready for production use
