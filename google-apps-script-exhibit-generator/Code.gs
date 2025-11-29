@@ -1,9 +1,30 @@
 /**
  * Google Apps Script - Visa Exhibit Generator
  * Native Google Drive integration for creating numbered exhibit packages
+ * With optional SmallPDF API compression
  *
  * Deploy as Web App for full functionality
  */
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+// Optional: Add your SmallPDF API key here for compression
+// Get key at: https://smallpdf.com/developers
+const SMALLPDF_API_KEY = ''; // Leave empty to skip compression
+
+// Or use Script Properties (more secure):
+function setSmallPDFKey() {
+  var apiKey = Browser.inputBox('Enter SmallPDF API Key:');
+  PropertiesService.getScriptProperties().setProperty('SMALLPDF_API_KEY', apiKey);
+  Browser.msgBox('API key saved!');
+}
+
+function getSmallPDFKey() {
+  var key = PropertiesService.getScriptProperties().getProperty('SMALLPDF_API_KEY');
+  return key || SMALLPDF_API_KEY;
+}
 
 // ============================================
 // WEB APP FUNCTIONS
@@ -420,4 +441,115 @@ function testSetup() {
     message: 'Setup verified successfully',
     timestamp: new Date().toString()
   };
+}
+
+// ============================================
+// PDF COMPRESSION (OPTIONAL)
+// ============================================
+
+/**
+ * Compress PDF using SmallPDF API
+ * Requires API key: https://smallpdf.com/developers
+ *
+ * @param {File} file - Google Drive file to compress
+ * @return {File} Compressed file or original if compression fails
+ */
+function compressPDF(file) {
+  var apiKey = getSmallPDFKey();
+
+  // Skip compression if no API key
+  if (!apiKey) {
+    Logger.log('No SmallPDF API key - skipping compression');
+    return file;
+  }
+
+  try {
+    Logger.log('Compressing: ' + file.getName());
+
+    // Step 1: Upload file to SmallPDF
+    var uploadUrl = 'https://api.smallpdf.com/v2/files';
+    var blob = file.getBlob();
+
+    var uploadOptions = {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey
+      },
+      payload: blob,
+      muteHttpExceptions: true
+    };
+
+    var uploadResponse = UrlFetchApp.fetch(uploadUrl, uploadOptions);
+    if (uploadResponse.getResponseCode() !== 200) {
+      throw new Error('Upload failed: ' + uploadResponse.getContentText());
+    }
+
+    var fileData = JSON.parse(uploadResponse.getContentText());
+    var fileId = fileData.id;
+
+    // Step 2: Compress file
+    var compressUrl = 'https://api.smallpdf.com/v2/compress';
+    var compressOptions = {
+      method: 'post',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      payload: JSON.stringify({
+        files: [{id: fileId}],
+        compression_level: 'recommended'  // Best for legal documents
+      }),
+      muteHttpExceptions: true
+    };
+
+    var compressResponse = UrlFetchApp.fetch(compressUrl, compressOptions);
+    if (compressResponse.getResponseCode() !== 200) {
+      throw new Error('Compression failed: ' + compressResponse.getContentText());
+    }
+
+    var compressData = JSON.parse(compressResponse.getContentText());
+
+    // Step 3: Download compressed file
+    var downloadUrl = compressData.files[0].url;
+    var compressedBlob = UrlFetchApp.fetch(downloadUrl).getBlob();
+
+    // Step 4: Calculate savings
+    var originalSize = blob.getBytes().length;
+    var compressedSize = compressedBlob.getBytes().length;
+    var reduction = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+    Logger.log('✓ Compressed ' + file.getName() + ': ' + reduction + '% reduction');
+
+    // Create new file with compressed content
+    var compressedFile = file.getParents().next().createFile(compressedBlob);
+    compressedFile.setName('Compressed_' + file.getName());
+
+    return compressedFile;
+
+  } catch (error) {
+    Logger.log('Compression failed for ' + file.getName() + ': ' + error);
+    return file;  // Return original if compression fails
+  }
+}
+
+/**
+ * Test compression with sample file
+ */
+function testCompression() {
+  // Get a test PDF file
+  var testFile = DriveApp.getFilesByName('test.pdf');
+  if (!testFile.hasNext()) {
+    Browser.msgBox('Please create a test.pdf file in your Drive first');
+    return;
+  }
+
+  var file = testFile.next();
+  var compressed = compressPDF(file);
+
+  Browser.msgBox(
+    'Compression Test Complete!\n\n' +
+    'Original: ' + file.getName() + '\n' +
+    'Compressed: ' + compressed.getName() + '\n' +
+    'Check your Drive folder.'
+  );
 }

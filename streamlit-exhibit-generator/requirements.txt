@@ -6,6 +6,7 @@ streamlit>=1.28.0
 # PDF handling
 PyPDF2>=3.0.0
 reportlab>=4.0.0
+PyMuPDF>=1.23.0  # For PDF compression (Tier 2)
 
 # Google Drive integration
 google-api-python-client>=2.100.0

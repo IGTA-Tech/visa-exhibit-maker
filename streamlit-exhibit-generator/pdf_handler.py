@@ -1,6 +1,6 @@
 """
 PDF Handler - PDF manipulation and generation
-Handles merging, numbering, TOC generation
+Handles merging, numbering, TOC generation, compression
 """
 
 import os
@@ -16,27 +16,68 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 import tempfile
 
+# Import compression handler
+try:
+    from compress_handler import USCISPDFCompressor
+    COMPRESSION_AVAILABLE = True
+except ImportError:
+    COMPRESSION_AVAILABLE = False
+
 
 class PDFHandler:
-    """Handle all PDF operations"""
+    """Handle all PDF operations including compression"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        enable_compression: bool = False,
+        quality_preset: str = 'high',
+        smallpdf_api_key: Optional[str] = None
+    ):
+        """
+        Initialize PDF Handler
+
+        Args:
+            enable_compression: Whether to compress PDFs before processing
+            quality_preset: Compression quality ('high', 'balanced', 'maximum')
+            smallpdf_api_key: Optional SmallPDF API key for premium compression
+        """
         self.temp_dir = tempfile.gettempdir()
+        self.enable_compression = enable_compression and COMPRESSION_AVAILABLE
+        self.compressor = None
+
+        if self.enable_compression:
+            self.compressor = USCISPDFCompressor(
+                quality_preset=quality_preset,
+                smallpdf_api_key=smallpdf_api_key
+            )
 
     def add_exhibit_number(self, pdf_path: str, exhibit_number: str) -> str:
         """
-        Add exhibit number to PDF header
+        Add exhibit number to PDF header (compresses first if enabled)
 
         Args:
             pdf_path: Path to original PDF
             exhibit_number: Exhibit number (A, B, C, etc.)
 
         Returns:
-            Path to numbered PDF
+            Path to numbered PDF with compression info
         """
         try:
-            # Read original PDF
-            reader = PdfReader(pdf_path)
+            # STEP 1: Compress PDF first if compression is enabled
+            working_path = pdf_path
+            compression_info = None
+
+            if self.enable_compression and self.compressor:
+                compress_result = self.compressor.compress(pdf_path)
+                if compress_result['success']:
+                    working_path = compress_result['output_path']
+                    compression_info = compress_result
+                    print(f"✓ Compressed {os.path.basename(pdf_path)}: "
+                          f"{compress_result['reduction_percent']:.1f}% reduction "
+                          f"({compress_result['method']})")
+
+            # STEP 2: Read PDF (compressed or original)
+            reader = PdfReader(working_path)
             writer = PdfWriter()
 
             # Create header with exhibit number
