@@ -1,4 +1,5 @@
 # Streamlit Visa Exhibit Generator - Dependencies
+# V2: Updated with new features
 
 # Core framework
 streamlit>=1.28.0
@@ -23,8 +24,14 @@ python-magic>=0.4.27
 # Date/time utilities
 python-dateutil>=2.8.2
 
-# Optional: API2PDF for URL to PDF conversion
-# api2pdf>=2.0.0
+# Data display
+pandas>=2.0.0
+
+# V2: Drag-and-drop reordering
+streamlit-sortables>=0.0.7
+
+# V2: URL to PDF conversion
+api2pdf>=2.0.0
 
 # Optional: OCR support
 # pytesseract>=0.3.10
