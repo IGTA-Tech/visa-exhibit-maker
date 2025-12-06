@@ -23,6 +23,10 @@ from typing import List, Dict, Optional
 import zipfile
 from datetime import datetime
 
+# V2: Load API keys from environment variables
+API2PDF_API_KEY = os.environ.get('API2PDF_API_KEY', '')
+SMALLPDF_API_KEY = os.environ.get('SMALLPDF_API_KEY', '')
+
 # Import our modules
 from pdf_handler import PDFHandler
 from exhibit_processor import ExhibitProcessor
@@ -266,42 +270,8 @@ def main():
                     st.write("3️⃣ **SmallPDF API** (PAID) - 40-80% compression")
                     st.write("   Premium quality ($12/month)")
 
-                # Optional SmallPDF API key
-                with st.expander("🔑 SmallPDF API Key (Optional)"):
-                    st.caption("For premium Tier 3 compression backup")
-                    smallpdf_key = st.text_input(
-                        "SmallPDF API Key",
-                        type="password",
-                        help="Get key at https://smallpdf.com/developers\n"
-                             "Leave empty to use free compression only"
-                    )
-                    if smallpdf_key:
-                        st.success("✓ SmallPDF API key set")
-                    else:
-                        st.info("Using free compression (Ghostscript + PyMuPDF)")
             else:
                 quality_code = "high"
-                smallpdf_key = None
-
-        st.divider()
-
-        # ==========================================
-        # V2: API2PDF for URL conversion
-        # ==========================================
-        st.header("🔗 URL to PDF")
-
-        with st.expander("API2PDF Key (Required for URL uploads)"):
-            st.caption("Convert web pages to PDF exhibits")
-            api2pdf_key = st.text_input(
-                "API2PDF API Key",
-                type="password",
-                help="Get key at https://www.api2pdf.com\n"
-                     "Required to convert URLs to PDFs"
-            )
-            if api2pdf_key:
-                st.success("✓ API2PDF key set")
-            else:
-                st.info("Enter API key to enable URL uploads")
 
         st.divider()
 
@@ -437,8 +407,8 @@ def main():
 
         # V2: URL Upload Feature
         elif upload_method == "From URLs":
-            if not api2pdf_key:
-                st.warning("⚠️ Please enter your API2PDF API key in the sidebar to enable URL uploads")
+            if not API2PDF_API_KEY:
+                st.error("❌ URL upload not available - API2PDF_API_KEY not configured in environment")
             else:
                 st.info("Enter URLs of web pages to convert to PDF exhibits (one per line)")
 
@@ -467,7 +437,7 @@ def main():
                             try:
                                 from url_to_pdf_handler import URLToPDFHandler
 
-                                url_handler = URLToPDFHandler(api2pdf_key)
+                                url_handler = URLToPDFHandler(API2PDF_API_KEY)
                                 archive_handler = ArchiveHandler() if archive_urls else None
 
                                 progress_bar = st.progress(0)
@@ -629,7 +599,7 @@ def main():
                     numbering_code,
                     enable_compression,
                     quality_code,
-                    smallpdf_key if enable_compression else None,
+                    SMALLPDF_API_KEY if enable_compression else None,
                     add_toc,
                     add_archive,
                     merge_pdfs,
@@ -774,7 +744,7 @@ def main():
                                     numbering_code,
                                     enable_compression,
                                     quality_code,
-                                    smallpdf_key if enable_compression else None,
+                                    SMALLPDF_API_KEY if enable_compression else None,
                                     add_toc,
                                     add_archive,
                                     merge_pdfs,
